@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自由美式餐廳 | Liberty Diner</title>
+    <!-- 引入 Tailwind CSS 進行快速樣式設計 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Vue 3 前端框架 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- 引入 FontAwesome 圖示庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* 隱藏尚未編譯完成的 Vue 模板，避免畫面閃爍 */
+        [v-cloak] { display: none; }
+        
+        /* 購物車側邊欄滑動動畫 */
+        .slide-enter-active, .slide-leave-active { transition: transform 0.3s ease-in-out; }
+        .slide-enter-from, .slide-leave-to { transform: translateX(100%); }
+        
+        /* 背景遮罩淡入淡出動畫 */
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        
+        /* 結帳成功彈出視窗縮放動畫 */
+        .pop-enter-active, .pop-leave-active { transition: all 0.3s ease; }
+        .pop-enter-from, .pop-leave-to { opacity: 0; transform: scale(0.9); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+    <div id="app" v-cloak>
+        <!-- 導覽列 Header -->
+        <header class="bg-red-700 text-white shadow-lg sticky top-0 z-40">
+            <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+                <div class="text-2xl font-black tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-burger text-yellow-400"></i>
+                    <span>自由美式餐廳</span>
+                </div>
+                
+                <!-- 購物車按鈕 -->
+                <button @click="toggleCart" class="relative bg-red-800 hover:bg-red-900 px-4 py-2 rounded-full transition duration-200 flex items-center gap-2 font-bold">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                    <span>購物車</span>
+                    <!-- 購物車數量徽章 -->
+                    <span v-if="cartCount > 0" class="absolute -top-2 -right-2 bg-yellow-400 text-red-900 text-xs font-bold px-2 py-1 rounded-full">
+                        {{ cartCount }}
+                    </span>
+                </button>
+            </div>
+        </header>
+
+        <!-- 英雄區塊 Hero Section -->
+        <section class="relative bg-gray-900 text-white py-20 bg-cover bg-center" style="background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1550547660-d9450f859349?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&q=80');">
+            <div class="container mx-auto px-4 text-center">
+                <h1 class="text-4xl md:text-6xl font-black mb-4 text-yellow-400 drop-shadow-lg">正宗美式風味，滿足你的味蕾！</h1>
+                <p class="text-lg md:text-xl mb-8 max-w-2xl mx-auto">大口咬下多汁漢堡，配上金黃酥脆的薯條，享受最純粹的美式熱情。現在就點餐，美味送到家！</p>
+                <a href="#menu" class="bg-yellow-400 text-red-900 font-bold text-lg px-8 py-3 rounded-full hover:bg-yellow-300 transition shadow-lg inline-block">
+                    查看菜單
+                </a>
+            </div>
+        </section>
+
+        <!-- 菜單區塊 Menu Section -->
+        <main id="menu" class="container mx-auto px-4 py-12">
+            <h2 class="text-3xl font-black text-center mb-10 text-gray-800 border-b-4 border-red-600 inline-block pb-2 mx-auto flex justify-center">精選主廚推薦</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- 菜單卡片 -->
+                <div v-for="item in menuItems" :key="item.id" class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition duration-300 flex flex-col">
+                    <!-- 餐點圖片 -->
+                    <div class="h-56 overflow-hidden">
+                        <img :src="item.image" :alt="item.name" class="w-full h-full object-cover hover:scale-105 transition duration-500" onerror="this.src='https://via.placeholder.com/400x300?text=Image+Not+Found'">
+                    </div>
+                    <!-- 餐點資訊 -->
+                    <div class="p-5 flex flex-col flex-grow">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-xl font-bold text-gray-900">{{ item.name }}</h3>
+                            <span class="text-lg font-bold text-red-600">NT$ {{ item.price }}</span>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-4 flex-grow">{{ item.description }}</p>
+                        <!-- 加入購物車按鈕 -->
+                        <button @click="addToCart(item)" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition duration-200 flex justify-center items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> 加入購物車
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 購物車側邊欄 (Sidebar) -->
+        <transition name="fade">
+            <!-- 暗色背景遮罩 -->
+            <div v-if="isCartOpen" @click="toggleCart" class="fixed inset-0 bg-black bg-opacity-50 z-40"></div>
+        </transition>
+
+        <transition name="slide">
+            <aside v-if="isCartOpen" class="fixed top-0 right-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 flex flex-col">
+                <!-- 購物車標頭 -->
+                <div class="bg-red-700 text-white p-4 flex justify-between items-center shadow-md">
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-basket-shopping"></i> 我的購物車
+                    </h2>
+                    <button @click="toggleCart" class="text-white hover:text-gray-300 text-2xl transition">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- 購物車內容清單 -->
+                <div class="flex-grow overflow-y-auto p-4 bg-gray-50">
+                    <div v-if="cart.length === 0" class="h-full flex flex-col items-center justify-center text-gray-400">
+                        <i class="fa-solid fa-cart-arrow-down text-6xl mb-4 text-gray-300"></i>
+                        <p class="text-lg">購物車是空的</p>
+                        <button @click="toggleCart" class="mt-4 text-red-600 font-bold hover:underline">去逛逛菜單</button>
+                    </div>
+
+                    <div v-else class="space-y-4">
+                        <!-- 購物車項目 -->
+                        <div v-for="(item, index) in cart" :key="index" class="bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex justify-between items-center">
+                            <div class="flex-1">
+                                <h4 class="font-bold text-gray-800">{{ item.name }}</h4>
+                                <div class="text-red-600 font-medium">NT$ {{ item.price }}</div>
+                            </div>
+                            
+                            <!-- 數量控制 -->
+                            <div class="flex items-center gap-3">
+                                <button @click="decreaseQty(item)" class="w-8 h-8 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 flex items-center justify-center transition">
+                                    <i class="fa-solid fa-minus text-xs"></i>
+                                </button>
+                                <span class="font-bold w-6 text-center">{{ item.quantity }}</span>
+                                <button @click="increaseQty(item)" class="w-8 h-8 rounded-full bg-red-100 text-red-700 hover:bg-red-200 flex items-center justify-center transition">
+                                    <i class="fa-solid fa-plus text-xs"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- 刪除按鈕 -->
+                            <button @click="removeFromCart(item)" class="ml-4 text-gray-400 hover:text-red-600 transition">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 結帳資訊區塊 -->
+                <div v-if="cart.length > 0" class="bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+                    <div class="flex justify-between mb-2 text-gray-600">
+                        <span>小計</span>
+                        <span>NT$ {{ cartTotal }}</span>
+                    </div>
+                    <div class="flex justify-between mb-4 text-xl font-black text-gray-900 border-t pt-2 border-gray-200">
+                        <span>總計金額</span>
+                        <span class="text-red-600">NT$ {{ cartTotal }}</span>
+                    </div>
+                    <button @click="checkout" class="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-black text-lg py-3 rounded-lg transition duration-200 flex justify-center items-center gap-2 shadow-md">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> 確認下單
+                    </button>
+                </div>
+            </aside>
+        </transition>
+
+        <!-- 結帳成功彈出視窗 (Modal) -->
+        <transition name="fade">
+            <div v-if="isCheckoutSuccess" class="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center px-4">
+                <transition name="pop">
+                    <div v-if="isCheckoutSuccess" class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-full h-2 bg-green-500"></div>
+                        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <i class="fa-solid fa-check text-4xl text-green-500"></i>
+                        </div>
+                        <h3 class="text-2xl font-black text-gray-900 mb-2">訂單已成立！</h3>
+                        <p class="text-gray-600 mb-6">感謝您的購買，您的美味餐點正在準備中，稍後將為您送達。</p>
+                        <p class="font-bold text-lg mb-6">總付款金額：<span class="text-red-600">NT$ {{ finalOrderTotal }}</span></p>
+                        <button @click="closeSuccessModal" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200">
+                            返回首頁
+                        </button>
+                    </div>
+                </transition>
+            </div>
+        </transition>
+
+        <!-- 頁尾 Footer -->
+        <footer class="bg-gray-900 text-gray-400 py-8 mt-12 text-center">
+            <div class="container mx-auto px-4">
+                <div class="flex justify-center gap-4 mb-4">
+                    <a href="#" class="hover:text-white transition"><i class="fa-brands fa-facebook text-2xl"></i></a>
+                    <a href="#" class="hover:text-white transition"><i class="fa-brands fa-instagram text-2xl"></i></a>
+                    <a href="#" class="hover:text-white transition"><i class="fa-brands fa-twitter text-2xl"></i></a>
+                </div>
+                <p>&copy; 2026 Liberty Diner. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Vue 應用程式邏輯 -->
+    <script>
+        const { createApp, ref, computed } = Vue;
+
+        createApp({
+            setup() {
+                // 菜單資料
+                const menuItems = ref([
+                    {
+                        id: 1,
+                        name: '經典起司牛肉堡',
+                        description: '100%純牛肉漢堡排，搭配濃郁切達起司、新鮮生菜與特製醬料，最經典的美式滋味。',
+                        price: 180,
+                        image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
+                    },
+                    {
+                        id: 2,
+                        name: '德州雙層巨無霸',
+                        description: '雙層厚實牛肉排、雙層起司，加上香脆培根與洋蔥圈，大份量滿足你的胃。',
+                        price: 260,
+                        image: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
+                    },
+                    {
+                        id: 3,
+                        name: '水牛城辣雞翅',
+                        description: '道地美式酸辣風味，炸至金黃酥脆後裹上特製辣醬，吮指回味無窮。(一份6隻)',
+                        price: 150,
+                        image: 'https://images.unsplash.com/photo-1608039829572-78524f79c4c7?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
+                    },
+                    {
+                        id: 4,
+                        name: '紐約客炭烤牛排',
+                        description: '精選8oz紐約客牛排，炭烤至完美熟度，肉質軟嫩多汁，附特製蘑菇醬。',
+                        price: 480,
+                        image: 'https://images.unsplash.com/photo-1600891964092-4316c288032e?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
+                    },
+                    {
+                        id: 5,
+                        name: '香草奶昔',
+                        description: '使用頂級香草冰淇淋與新鮮牛奶打製，口感綿密滑順，搭配漢堡的最佳飲品。',
+                        price: 120,
+                        image: 'https://images.unsplash.com/photo-1572490122747-3968b75bb827?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
+                    },
+                    {
+                        id: 6,
+                        name: '美式黃金脆薯',
+                        description: '外酥內軟的粗切馬鈴薯條，撒上特調海鹽與香料，一口接一口停不下來。',
+                        price: 80,
+                        image: 'https://images.unsplash.com/photo-1576107232684-1279f390859f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'
+                    }
+                ]);
+
+                // 狀態變數
+                const cart = ref([]);
+                const isCartOpen = ref(false);
+                const isCheckoutSuccess = ref(false);
+                const finalOrderTotal = ref(0); // 紀錄結帳瞬間的金額
+
+                // 開關購物車
+                const toggleCart = () => {
+                    isCartOpen.value = !isCartOpen.value;
+                };
+
+                // 加入購物車
+                const addToCart = (product) => {
+                    const existingItem = cart.value.find(item => item.id === product.id);
+                    if (existingItem) {
+                        existingItem.quantity += 1;
+                    } else {
+                        cart.value.push({
+                            id: product.id,
+                            name: product.name,
+                            price: product.price,
+                            quantity: 1
+                        });
+                    }
+                    // 加入後自動打開購物車，提升體驗
+                    isCartOpen.value = true;
+                };
+
+                // 減少數量
+                const decreaseQty = (item) => {
+                    if (item.quantity > 1) {
+                        item.quantity -= 1;
+                    } else {
+                        removeFromCart(item);
+                    }
+                };
+
+                // 增加數量
+                const increaseQty = (item) => {
+                    item.quantity += 1;
+                };
+
+                // 移除商品
+                const removeFromCart = (itemToRemove) => {
+                    cart.value = cart.value.filter(item => item.id !== itemToRemove.id);
+                };
+
+                // 結帳功能
+                const checkout = () => {
+                    if (cart.value.length === 0) return;
+                    
+                    finalOrderTotal.value = cartTotal.value; // 記錄最後金額
+                    cart.value = []; // 清空購物車
+                    isCartOpen.value = false; // 關閉購物車側邊欄
+                    isCheckoutSuccess.value = true; // 顯示成功彈出視窗
+                };
+
+                // 關閉成功訊息
+                const closeSuccessModal = () => {
+                    isCheckoutSuccess.value = false;
+                };
+
+                // 計算屬性：購物車總金額
+                const cartTotal = computed(() => {
+                    return cart.value.reduce((total, item) => total + (item.price * item.quantity), 0);
+                });
+
+                // 計算屬性：購物車總數量 (用於徽章顯示)
+                const cartCount = computed(() => {
+                    return cart.value.reduce((count, item) => count + item.quantity, 0);
+                });
+
+                // 匯出供模板使用
+                return {
+                    menuItems,
+                    cart,
+                    isCartOpen,
+                    isCheckoutSuccess,
+                    finalOrderTotal,
+                    toggleCart,
+                    addToCart,
+                    decreaseQty,
+                    increaseQty,
+                    removeFromCart,
+                    checkout,
+                    closeSuccessModal,
+                    cartTotal,
+                    cartCount
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
